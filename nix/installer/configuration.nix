@@ -5,8 +5,6 @@
     "${modulesPath}/installer/cd-dvd/installation-cd-minimal.nix"
   ];
 
-  networking.useDHCP = true;
-
   services.openssh = {
     enable = true;
 
@@ -16,8 +14,8 @@
     };
   };
 
-  users.users.nixos.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP193fLq/J/V8/vBpEqQCSqW+UUbfC+sflm9OEpno9Hm matthewmerioles@yahoo.com"
+  users.users.nixos.openssh.authorizedKeys.keyFiles = [
+    ../../keys/chimera_provision.pub
   ];
 
   system.stateVersion = "26.05";
