@@ -4,6 +4,12 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
+  boot.initrd.availableKernelModules = [
+  "virtio_pci"
+  "virtio_scsi"
+  "sd_mod"
+  ];
+  
   networking.hostName = "nix01";
   networking.useDHCP = true;
 

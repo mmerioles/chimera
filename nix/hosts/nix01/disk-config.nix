@@ -15,6 +15,11 @@
             type = "filesystem";
             format = "vfat";
             mountpoint = "/boot";
+
+            extraArgs = [
+              "-n"
+              "BOOT"
+            ];
           };
         };
 
@@ -25,6 +30,11 @@
             type = "filesystem";
             format = "ext4";
             mountpoint = "/";
+
+            extraArgs = [
+              "-L"
+              "nixos"
+            ];
           };
         };
       };
