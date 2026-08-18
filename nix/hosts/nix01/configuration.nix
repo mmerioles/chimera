@@ -1,8 +1,10 @@
 { pkgs, ... }:
 
 {
-  networking.hostName = "nix01";
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
+  networking.hostName = "nix01";
   networking.useDHCP = true;
 
   services.openssh = {
