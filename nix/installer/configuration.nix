@@ -10,12 +10,12 @@
 
     settings = {
       PasswordAuthentication = false;
-      PermitRootLogin = "no";
+      PermitRootLogin = "prohibit-password";
     };
   };
 
-  users.users.nixos.openssh.authorizedKeys.keyFiles = [
-    ../../keys/chimera_provision.pub
+  users.users.root.openssh.authorizedKeys.keyFiles = [
+    ../keys/chimera_provision.pub
   ];
 
   system.stateVersion = "26.05";
