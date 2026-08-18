@@ -10,7 +10,7 @@
   "sd_mod"
   ];
   
-  networking.hostName = "nix01";
+  networking.hostName = "nix02";
   networking.useDHCP = true;
 
   services.openssh = {

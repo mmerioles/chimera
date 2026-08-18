@@ -23,6 +23,16 @@
         ];
       };
 
+      nix02 = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+
+        modules = [
+          disko.nixosModules.disko
+          ./hosts/nix02/disk-config.nix
+          ./hosts/nix02/configuration.nix
+        ];
+      };
+
       installer = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
 
