@@ -33,6 +33,16 @@
         ];
       };
 
+      mon01 = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+
+        modules = [
+            disko.nixosModules.disko
+            ./hosts/mon01/disk-config.nix
+            ./hosts/mon01/configuration.nix
+        ];
+      };
+
       installer = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
 
