@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: Health
+    uid: health-postgres
+    type: postgres
+    access: proxy
+    url: ${HEALTH_DB_HOST}
+    database: ${HEALTH_DB_NAME}
+    user: ${HEALTH_DB_USER}
+    isDefault: true
+    editable: false
+    jsonData:
+      sslmode: disable          # local compose only; see README for the mon01 port
+      postgresVersion: 1700
+      timescaledb: true
+    secureJsonData:
+      password: ${HEALTH_DB_PASSWORD}

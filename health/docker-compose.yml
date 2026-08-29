@@ -1,0 +1,83 @@
+# Local development stack. Mirrors what will run on mon01, minus TLS and
+# Tailscale - see README for the port to NixOS oci-containers.
+name: chimera-health
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-health}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-health}
+      POSTGRES_DB: ${POSTGRES_DB:-health}
+    ports:
+      # Non-default host port so this never collides with a local Postgres.
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-health} -d ${POSTGRES_DB:-health}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ingest:
+    build: ./ingest
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-health}:${POSTGRES_PASSWORD:-health}@db:5432/${POSTGRES_DB:-health}
+      INGEST_TOKEN: ${INGEST_TOKEN:?INGEST_TOKEN must be set - copy .env.example to .env}
+      LOCAL_TIMEZONE: ${LOCAL_TIMEZONE:-UTC}
+      MIGRATIONS_DIR: /app/migrations
+      # The ingest service owns the schema, so it also provisions the
+      # read-only role Grafana logs in with.
+      GRAFANA_DB_USER: ${GRAFANA_DB_USER:-grafana_ro}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_ro}
+    ports:
+      - "${INGEST_PORT:-8000}:8000"
+    volumes:
+      # Mounted rather than baked in, so the same image can be rolled forward
+      # against a database that is behind on migrations.
+      - ./db/migrations:/app/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8000/healthz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_DEFAULT_THEME: dark
+      # LOCAL DEV ONLY. Anonymous read-only viewing so the dashboard opens
+      # without a login on localhost. Do NOT carry these three lines to
+      # mon01 - the NixOS module in the README leaves them out.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_BASIC_ENABLED: "true"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: ${LOCAL_TIMEZONE:-UTC}
+      # Read by the provisioned datasource so credentials stay out of the YAML.
+      HEALTH_DB_HOST: db:5432
+      HEALTH_DB_NAME: ${POSTGRES_DB:-health}
+      HEALTH_DB_USER: ${GRAFANA_DB_USER:-grafana_ro}
+      HEALTH_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_ro}
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      ingest:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  grafana_data:
