@@ -1,0 +1,922 @@
+{
+  "uid": "health-screentime",
+  "title": "Screen Time",
+  "tags": [
+    "health",
+    "screentime"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "5m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "1d"
+    ]
+  },
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Today",
+      "description": "Screen time so far today, local midnight to now. Independent of the dashboard time range.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT screen_time_hours AS \"Today\"\nFROM health.v_screentime_daily\nWHERE day = health.local_day(now())",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3987e5",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "7-day average",
+      "description": "Mean daily screen time over the 7 complete days before today.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT AVG(screen_time_hours) AS \"7-day average\"\nFROM health.v_screentime_daily\nWHERE day >= health.local_day(now()) - interval '7 days'\n  AND day <  health.local_day(now())",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3987e5",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "30-day average",
+      "description": "Mean daily screen time over the 30 complete days before today. The baseline the 7-day figure should be read against.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT AVG(screen_time_hours) AS \"30-day average\"\nFROM health.v_screentime_daily\nWHERE day >= health.local_day(now()) - interval '30 days'\n  AND day <  health.local_day(now())",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3987e5",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Unlocks per day",
+      "description": "Mean pickups per day over the last 7 complete days. Tracks compulsive checking separately from time spent.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT AVG(unlocks) AS \"Unlocks per day\"\nFROM health.v_screentime_daily\nWHERE day >= health.local_day(now()) - interval '7 days'\n  AND day <  health.local_day(now())",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3987e5",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Daily screen time",
+      "description": "Total foreground time per local day, with a trailing 7-day mean. The mean is computed over the visible range, so the first six points of any range are partial windows.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 16,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT day AS time,\n       screen_time_hours AS \"Daily\",\n       AVG(screen_time_hours) OVER (\n         ORDER BY day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW\n       ) AS \"7-day mean\"\nFROM health.v_screentime_daily\nWHERE $__timeFilter(day)\nORDER BY day",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "axisLabel": "hours",
+            "axisPlacement": "left",
+            "gradientMode": "none",
+            "showPoints": "never",
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "7-day mean"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "smooth"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "barchart",
+      "title": "Top apps in range",
+      "description": "Total foreground hours per app across the selected range.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT app AS \"App\",\n       SUM(seconds) / 3600.0 AS \"Hours\"\nFROM health.v_screentime_daily_app\nWHERE $__timeFilter(day)\nGROUP BY app\nORDER BY 2 DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "axisLabel": "hours",
+            "gradientMode": "none",
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#3987e5",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "xField": "App",
+        "showValue": "always",
+        "stacking": "none",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "id": 6
+    },
+    {
+      "type": "barchart",
+      "title": "When the phone gets used",
+      "description": "Average minutes of screen time per hour of the local day, averaged across every day in the selected range.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH span AS (\n  SELECT GREATEST(COUNT(DISTINCT day), 1) AS n_days\n  FROM health.v_screentime_hourly\n  WHERE $__timeFilter(ts)\n)\nSELECT lpad(h.hour_of_day::text, 2, '0') AS \"Hour\",\n       SUM(h.seconds) / 60.0 / span.n_days AS \"Avg minutes\"\nFROM health.v_screentime_hourly h\nCROSS JOIN span\nWHERE $__timeFilter(h.ts)\nGROUP BY h.hour_of_day, span.n_days\nORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#3987e5"
+          },
+          "custom": {
+            "fillOpacity": 85,
+            "lineWidth": 0,
+            "axisLabel": "avg minutes",
+            "gradientMode": "none"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "vertical",
+        "xField": "Hour",
+        "showValue": "never",
+        "stacking": "none",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Late-night use (22:00 - 02:00)",
+      "description": "Minutes of screen time in the four hours around bedtime, attributed to the night it started - so 00:30 counts toward the previous day. This is the panel to overlay against ResMed sleep onset once that source lands.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN hour_of_day < 2 THEN day - interval '1 day' ELSE day END AS time,\n       SUM(seconds) / 60.0 AS \"Late-night minutes\"\nFROM health.v_screentime_hourly\nWHERE $__timeFilter(ts)\n  AND (hour_of_day >= 22 OR hour_of_day < 2)\nGROUP BY 1\nORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#9085e9"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "lineInterpolation": "smooth",
+            "axisLabel": "minutes",
+            "gradientMode": "none",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "timeseries",
+      "title": "Daily breakdown by app",
+      "description": "Stacked daily hours for the six largest apps in range; everything else folds into Other. Colors are pinned per app in the panel overrides, so a series keeps its colour when the ranking changes - add an override to pin a new app.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 16,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH top AS (\n  SELECT app\n  FROM health.v_screentime_daily_app\n  WHERE $__timeFilter(day)\n  GROUP BY app\n  ORDER BY SUM(seconds) DESC\n  LIMIT 6\n)\nSELECT a.day AS time,\n       CASE WHEN a.app IN (SELECT app FROM top) THEN a.app ELSE 'Other' END AS metric,\n       SUM(a.seconds) / 3600.0 AS value\nFROM health.v_screentime_daily_app a\nWHERE $__timeFilter(a.day)\nGROUP BY 1, 2\nORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "h",
+          "decimals": 1,
+          "color": {
+            "mode": "palette-classic-by-name"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.8,
+            "axisLabel": "hours",
+            "gradientMode": "none",
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "YouTube"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Instagram"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d95926"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Chrome"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#199e70"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Reddit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#c98500"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Messages"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#d55181"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Slack"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#008300"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Other"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#7c7b74"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "timeseries",
+      "title": "Unlocks per day",
+      "description": "Times the phone was unlocked per local day.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 8,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT day AS time, unlocks AS \"Unlocks\"\nFROM health.v_screentime_daily\nWHERE $__timeFilter(day)\nORDER BY day",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#c98500"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "axisLabel": "unlocks",
+            "gradientMode": "none",
+            "showPoints": "never",
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "table",
+      "title": "App detail",
+      "description": "Per-app totals for the selected range. Doubles as the table view for the charts above, so no reading depends on colour alone.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "health-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "health-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH totals AS (\n  SELECT SUM(seconds) AS all_seconds,\n         GREATEST(COUNT(DISTINCT day), 1) AS n_days\n  FROM health.v_screentime_daily_app\n  WHERE $__timeFilter(day)\n),\nopens AS (\n  SELECT e.display_name AS app, SUM(o.value) AS opens\n  FROM health.observations o\n  JOIN health.metrics  m ON m.id = o.metric_id\n  JOIN health.entities e ON e.id = o.entity_id\n  WHERE m.key = 'app_session_count' AND $__timeFilter(o.ts)\n  GROUP BY 1\n)\nSELECT a.app                                        AS \"App\",\n       SUM(a.seconds) / 3600.0                      AS \"Total hours\",\n       SUM(a.seconds) / 60.0 / t.n_days             AS \"Avg min/day\",\n       100.0 * SUM(a.seconds) / NULLIF(t.all_seconds, 0) AS \"Share %\",\n       COALESCE(op.opens, 0)                        AS \"Opens\",\n       SUM(a.seconds) / 60.0 / NULLIF(op.opens, 0)  AS \"Avg min/open\"\nFROM health.v_screentime_daily_app a\nCROSS JOIN totals t\nLEFT JOIN opens op ON op.app = a.app\nWHERE $__timeFilter(a.day)\nGROUP BY a.app, t.n_days, t.all_seconds, op.opens\nORDER BY 2 DESC",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          },
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total hours"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3987e5"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Share %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Opens"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false
+        },
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Total hours"
+          }
+        ]
+      },
+      "id": 11
+    }
+  ]
+}
