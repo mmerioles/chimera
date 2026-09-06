@@ -104,26 +104,65 @@ Same three shapes take every future source: intervals (sleep, runs) →
 auth generate themselves.
 
 **Why Postgres, not the Influx box on mon01:** InfluxDB 3 Core can only query
-the last 72 hours, which kills every multi-month trend. mon01's Influx
-container is untouched and unused by this.
+the last 72 hours, which kills every multi-month trend. The influxdb3 unit on
+mon01 is untouched and unused by this - the two just share a host.
 
 ---
 
-## Moving to mon01
+## On mon01
 
-Local-dev-only settings that must **not** come along:
+Native systemd units, not containers: Postgres with TimescaleDB, the ingest
+API under uvicorn, and Grafana provisioned from the same datasource and
+dashboard files compose uses. All of it is `nix/hosts/mon01/health.nix`.
 
-- `GF_AUTH_ANONYMOUS_*` — exists so localhost opens without a login
-- `sslmode=disable`, and the default passwords in `.env.example`
+Deploy from the repo root:
 
-And on the VM:
+```bash
+nix run nixpkgs#nixos-rebuild -- switch \
+  --flake .#mon01 \
+  --target-host matt@mon01 \
+  --build-host matt@mon01 \
+  --sudo
+```
 
-- Secrets via `environmentFile` (agenix/sops) — anything inline in a `.nix`
-  file is world-readable in `/nix/store`
-- Bind ingest to the Tailscale IP only: `ports = [ "100.x.y.z:8000:8000" ]`,
-  and keep 8000 out of `networking.firewall.allowedTCPPorts`
-- Point the phone's endpoint at the tailnet name instead of the LAN IP
-- Back up the `db_data` volume — it's the only copy of the health record
+### Access
 
-Timezone lives in `LOCAL_TIMEZONE` in `.env`; a "day" is local midnight to
-local midnight everywhere.
+- Dashboard -> <http://mon01:3000> - opens with no login
+- API docs -> <http://mon01:8000/docs>
+
+**Nothing is exposed to the LAN.** Only port 22 is open there; Grafana, ingest
+and InfluxDB are reached over the tailnet, where `tailscale0` is a trusted
+interface. Being on the tailnet *is* the authentication step, which is what
+makes anonymous Grafana reasonable here - anonymous is `Viewer`, so visitors
+read and cannot edit.
+
+Admin (for editing Grafana itself) is still `admin`:
+
+```bash
+ssh matt@mon01 'sudo cat /var/lib/health/grafana_admin_password'
+```
+
+### The phone
+
+Point the app's Endpoint at
+`http://mon01:8000/v1/ingest/phone_screentime` - the phone is a tailnet node,
+so this works from anywhere, not just home wifi. The token:
+
+```bash
+ssh matt@mon01 'sudo grep INGEST_TOKEN /var/lib/health/secrets.env'
+```
+
+The bearer token still gates every write. A tailnet is a network boundary, not
+an authorization one.
+
+### Secrets
+
+Generated on the box into `/var/lib/health/`, never in `/nix/store`, which is
+world-readable. Grafana reads its database password through `$__file{}`.
+Rotate one by deleting its file and restarting `health-secrets.service`.
+
+Back up `/var/lib/postgresql` - it is the only copy of the health record.
+
+A "day" is local midnight to local midnight everywhere. That zone comes from
+`LOCAL_TIMEZONE` in `.env` on the laptop, and from `localTimezone` in
+`nix/hosts/mon01/health.nix` on mon01.

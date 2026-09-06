@@ -33,7 +33,7 @@ resource "proxmox_virtual_environment_vm" "nix01" {
 
   cdrom {
     interface = "ide3"
-    file_id   = "local:iso/nixos-minimal-26.05.7813.0dd31db7e6db-x86_64-linux.iso"
+    file_id   = "local:iso/chimera-installer.iso"
   }
 }
 
@@ -93,20 +93,19 @@ resource "proxmox_virtual_environment_vm" "mon01" {
 
   cpu {
     cores = 4
+    type  = "host"
   }
 
   memory {
     dedicated = 8192
   }
 
-  # OS disk
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi0"
     size         = 64
   }
 
-  # InfluxDB data disk
   disk {
     datastore_id = "local-lvm"
     interface    = "scsi1"

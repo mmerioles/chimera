@@ -18,8 +18,9 @@
 
         modules = [
           disko.nixosModules.disko
-          ./hosts/nix01/disk-config.nix
-          ./hosts/nix01/configuration.nix
+          ./nix/hosts/nix01/disk-config.nix
+          ./nix/hosts/nix01/configuration.nix
+          ./nix/modules/tailscale.nix
         ];
       };
 
@@ -28,8 +29,9 @@
 
         modules = [
           disko.nixosModules.disko
-          ./hosts/nix02/disk-config.nix
-          ./hosts/nix02/configuration.nix
+          ./nix/hosts/nix02/disk-config.nix
+          ./nix/hosts/nix02/configuration.nix
+          ./nix/modules/tailscale.nix
         ];
       };
 
@@ -38,8 +40,10 @@
 
         modules = [
             disko.nixosModules.disko
-            ./hosts/mon01/disk-config.nix
-            ./hosts/mon01/configuration.nix
+            ./nix/hosts/mon01/disk-config.nix
+            ./nix/hosts/mon01/configuration.nix
+            ./nix/hosts/mon01/health.nix
+            ./nix/modules/tailscale.nix
         ];
       };
 
@@ -47,7 +51,7 @@
         system = "x86_64-linux";
 
         modules = [
-          ./installer/configuration.nix
+          ./nix/installer/configuration.nix
         ];
       };
     };
