@@ -25,10 +25,13 @@
   networking.firewall = {
     enable = true;
 
-    # LAN-facing holes only. Grafana (3000), ingest (8000) and InfluxDB
+    # LAN-facing holes only. nginx (443), ingest (8000) and InfluxDB
     # (8181) are deliberately absent: they are reached over the tailnet,
     # where tailscale0 is a trusted interface. SSH stays open as the way
     # back in if Tailscale is ever the thing that is broken.
+    #
+    # Grafana is not listed because it no longer listens off-box at all -
+    # nginx reaches it on loopback.
     allowedTCPPorts = [
       22    # SSH
     ];
@@ -182,8 +185,17 @@
 
     settings = {
       server = {
-        http_addr = "0.0.0.0";
+        # Loopback, not 0.0.0.0. nginx is the only thing that talks to
+        # Grafana now, and it does so over lo - leaving 3000 on the tailnet
+        # would keep a plaintext door open beside the TLS one.
+        http_addr = "127.0.0.1";
         http_port = 3000;
+
+        # Grafana builds its own redirect and asset URLs from this. Left at
+        # the default it emits http://localhost:3000 links behind a proxy,
+        # which breaks login and every share link.
+        domain = "mon01.merionas.com";
+        root_url = "https://mon01.merionas.com/";
       };
 
       security = {
@@ -200,6 +212,34 @@
     after = [
       "grafana-secret.service"
     ];
+  };
+
+
+  # ------------------------------------------------------------
+  # https://mon01.merionas.com
+  #
+  # See modules/tls.nix for the certificate machinery. enableACME requests
+  # this exact name over DNS-01; forceSSL adds the :80 -> :443 redirect so
+  # typing the bare hostname still lands somewhere trusted.
+  #
+  # mon01.merionas.com must be an A record at Cloudflare pointing at this
+  # host's tailnet address, 100.123.4.125, and it must be DNS-only (grey
+  # cloud). Proxying it orange breaks both halves: Cloudflare cannot route to
+  # a 100.64/10 address, and it would terminate TLS itself with a
+  # certificate we do not control.
+  # ------------------------------------------------------------
+
+  services.nginx.virtualHosts."mon01.merionas.com" = {
+    enableACME = true;
+    forceSSL = true;
+
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:3000";
+
+      # Grafana's Explore and live panels use websockets, which do not
+      # survive a plain proxy_pass without the upgrade headers.
+      proxyWebsockets = true;
+    };
   };
 
 

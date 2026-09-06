@@ -44,6 +44,7 @@
             ./nix/hosts/mon01/configuration.nix
             ./nix/hosts/mon01/health.nix
             ./nix/modules/tailscale.nix
+            ./nix/modules/tls.nix
         ];
       };
 
