@@ -36,11 +36,22 @@
       # fail at startup with a lego "no credentials" error.
       environmentFile = "/var/lib/secrets/cloudflare.env";
 
-      # Ask Cloudflare directly whether the challenge record has propagated.
-      # The host's own resolver is Tailscale's MagicDNS at 100.100.100.100,
-      # which forwards and caches, and a cached negative answer stalls the
-      # propagation check until it times out.
+      # Used for CNAME resolution and apex-domain determination only - lego
+      # queries the authoritative nameserver directly for the challenge record
+      # itself, so this does not influence the propagation check. It is set
+      # because the host's own resolver is Tailscale's MagicDNS at
+      # 100.100.100.100, which is not a general-purpose recursive resolver.
       dnsResolver = "1.1.1.1:53";
+
+      # Wait a fixed 90s after writing the TXT record instead of polling for
+      # it. lego's default is to poll the authoritative nameservers until the
+      # record shows up, but Cloudflare serves a newly written record to its
+      # own authoritative servers late enough that the poll gives up first -
+      # it fails with "propagation: time limit exceeded ... NXDOMAIN" for a
+      # record that is in the zone and resolving fine a minute later. This is
+      # a global lego flag rather than part of the run subcommand, hence
+      # extraLegoFlags and not extraLegoRunFlags.
+      extraLegoFlags = [ "--dns.propagation-wait" "90s" ];
     };
   };
 

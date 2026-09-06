@@ -229,8 +229,25 @@
   # certificate we do not control.
   # ------------------------------------------------------------
 
+  # dnsProvider is set here rather than inherited from security.acme.defaults,
+  # and the vhost below says useACMEHost rather than enableACME, because those
+  # two are a trap together: enableACME makes the nginx module set `webroot` on
+  # this cert, a set webroot suppresses the inherited dnsProvider, and lego then
+  # quietly runs an HTTP-01 challenge instead of DNS-01. HTTP-01 needs Let's
+  # Encrypt to connect to this host, which it cannot do at a 100.64/10 address,
+  # so it fails with "no valid A records found for mon01.merionas.com" - while
+  # every other inherited default (email, environmentFile, dnsResolver) reads
+  # back as correctly applied, which makes it look like a DNS problem.
+  security.acme.certs."mon01.merionas.com" = {
+    dnsProvider = "cloudflare";
+
+    # nginx reads the private key. The acme default group leaves it readable
+    # only by acme itself.
+    group = "nginx";
+  };
+
   services.nginx.virtualHosts."mon01.merionas.com" = {
-    enableACME = true;
+    useACMEHost = "mon01.merionas.com";
     forceSSL = true;
 
     locations."/" = {
@@ -239,6 +256,39 @@
       # Grafana's Explore and live panels use websockets, which do not
       # survive a plain proxy_pass without the upgrade headers.
       proxyWebsockets = true;
+    };
+  };
+
+
+  # ------------------------------------------------------------
+  # https://ingest.merionas.com
+  #
+  # Same DNS-01 pattern as the Grafana vhost above; see the comment there for
+  # why this is useACMEHost and not enableACME.
+  #
+  # Unlike Grafana, the ingest service deliberately keeps listening on
+  # 0.0.0.0:8000 as well (health.nix is unchanged). The phone posts to the
+  # port directly, and taking that away would break uploads the moment this
+  # deploys. Both paths reach the same service, so the shortcut can move to
+  # the TLS one whenever it is convenient, and 8000 can be closed after.
+  # ------------------------------------------------------------
+
+  security.acme.certs."ingest.merionas.com" = {
+    dnsProvider = "cloudflare";
+    group = "nginx";
+  };
+
+  services.nginx.virtualHosts."ingest.merionas.com" = {
+    useACMEHost = "ingest.merionas.com";
+    forceSSL = true;
+
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:8000";
+
+      # nginx defaults to 1M and answers 413 above it. The phone uploads a
+      # day of samples in one POST, which the service itself is happy to
+      # take, so the proxy should not be the thing that sets the ceiling.
+      extraConfig = "client_max_body_size 32m;";
     };
   };
 
