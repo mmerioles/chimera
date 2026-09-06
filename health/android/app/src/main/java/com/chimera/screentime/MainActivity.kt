@@ -24,13 +24,18 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         val prefs = getSharedPreferences(UploadWorker.PREFS, Context.MODE_PRIVATE)
 
+        // Pre-filled, not an empty box with a hint. There is exactly one
+        // server this ever talks to, and a hint renders as grey placeholder
+        // text that reads as an already-filled value - so the endpoint stayed
+        // empty and every upload died on MalformedURLException: no protocol.
         endpoint = EditText(this).apply {
-            hint = "https://mon01.tailnet.ts.net:8000/v1/ingest/phone_screentime"
-            setText(prefs.getString(UploadWorker.KEY_ENDPOINT, ""))
+            setText(prefs.getString(UploadWorker.KEY_ENDPOINT, DEFAULT_ENDPOINT))
+            setSingleLine(true)
         }
         token = EditText(this).apply {
-            hint = "ingest token"
+            hint = "paste the ingest token"
             setText(prefs.getString(UploadWorker.KEY_TOKEN, ""))
+            setSingleLine(true)
         }
         status = TextView(this)
 
@@ -70,14 +75,33 @@ class MainActivity : Activity() {
             }
         }
 
-        setContentView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(48, 48, 48, 48)
-            addView(TextView(this@MainActivity).apply { text = "Ingest endpoint" })
-            addView(endpoint)
-            addView(TextView(this@MainActivity).apply { text = "Bearer token" })
-            addView(token)
-            addView(save); addView(grant); addView(syncNow); addView(status)
+        // Width matters: added without explicit params these wrap to their
+        // content, and an EditText holding a full URL then runs off the edge
+        // of the screen instead of looking like a field to fill in.
+        val wide = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+
+        fun label(t: String) = TextView(this@MainActivity).apply {
+            text = t
+            setPadding(0, 24, 0, 8)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+
+        setContentView(ScrollView(this).apply {
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(48, 48, 48, 48)
+                addView(label("1. Ingest endpoint"), wide)
+                addView(endpoint, wide)
+                addView(label("2. Bearer token"), wide)
+                addView(token, wide)
+                addView(save, wide)
+                addView(grant, wide)
+                addView(syncNow, wide)
+                addView(status, wide)
+            })
         })
 
         refresh()
@@ -92,7 +116,14 @@ class MainActivity : Activity() {
             append("Usage access: ").append(if (hasUsageAccess()) "granted" else "NOT granted").append('\n')
             append("Last upload: ")
             append(if (wm == 0L) "never" else java.util.Date(wm).toString())
+            append('\n')
+            append("Last result: ")
+            append(prefs.getString(UploadWorker.KEY_LAST_RESULT, "no attempt yet"))
         }
+    }
+
+    private companion object {
+        const val DEFAULT_ENDPOINT = "http://mon01:8000/v1/ingest/phone_screentime"
     }
 
     private fun hasUsageAccess(): Boolean {

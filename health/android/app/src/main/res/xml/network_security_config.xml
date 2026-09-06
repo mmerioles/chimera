@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android denies cleartext HTTP by default from API 28 up, so uploads to
+  http://mon01:8000 failed on the phone before a packet ever left it - no
+  request reached the server and the app just never synced.
+
+  Cleartext is re-enabled for mon01 only, not globally: the tailnet already
+  encrypts this traffic with WireGuard, so HTTP over it is not exposed, but
+  anything off the tailnet still has to be HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">mon01</domain>
+        <domain includeSubdomains="true">mon01.python-acrux.ts.net</domain>
+        <!-- The tailnet address, for when MagicDNS short names do not resolve
+             on the handset and the endpoint has to be given as an IP. -->
+        <domain includeSubdomains="false">100.123.4.125</domain>
+    </domain-config>
+</network-security-config>

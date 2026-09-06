@@ -33,18 +33,30 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val data = UsageCollector(applicationContext).collect(since, now)
         val payload = buildPayload(data, since, now)
 
+        // Every outcome is written to KEY_LAST_RESULT and shown on the setup
+        // screen. Uploads run in a background worker with no UI of their own,
+        // so a swallowed exception here is indistinguishable from "nothing
+        // happened" - which is exactly how a blocked cleartext request looks.
         return try {
             val code = post(endpoint, token, payload)
             if (code in 200..299) {
-                prefs.edit().putLong(KEY_WATERMARK, now).apply()
+                prefs.edit()
+                    .putLong(KEY_WATERMARK, now)
+                    .putString(KEY_LAST_RESULT, "OK ($code) at " + java.util.Date())
+                    .apply()
                 Result.success()
             } else if (code in 500..599) {
+                prefs.edit().putString(KEY_LAST_RESULT, "server error $code, will retry").apply()
                 Result.retry()
             } else {
                 // 4xx is our bug, not a transient fault; retrying cannot fix it.
+                prefs.edit().putString(KEY_LAST_RESULT, "rejected: HTTP $code").apply()
                 Result.failure()
             }
         } catch (t: Throwable) {
+            prefs.edit()
+                .putString(KEY_LAST_RESULT, t.javaClass.simpleName + ": " + (t.message ?: "no detail"))
+                .apply()
             Result.retry()
         }
     }
@@ -117,6 +129,7 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         const val KEY_ENDPOINT = "endpoint"
         const val KEY_TOKEN = "token"
         const val KEY_WATERMARK = "watermark"
+        const val KEY_LAST_RESULT = "last_result"
         const val WORK_NAME = "screentime-upload"
     }
 }

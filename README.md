@@ -70,13 +70,15 @@ Tested: all three VMs were destroyed and rebuilt with this.
 
 ## https
 
-| url                            | what           |
-|--------------------------------|----------------|
-| <https://mon01.merionas.com>   | grafana        |
-| <https://ingest.merionas.com>  | ingest api     |
+| url                                 | what        | managed by      |
+|-------------------------------------|-------------|-----------------|
+| <https://mon01.merionas.com>        | grafana     | nix, mon01      |
+| <https://ingest.merionas.com>       | ingest api  | nix, mon01      |
+| <https://tet01.merionas.com:8006>   | proxmox     | pvenode, tet01  |
 
-Both have real Let's Encrypt certs. `nix/modules/tls.nix` has the plumbing,
-the vhosts are in the mon01 config.
+All real Let's Encrypt certs. For the two on mon01, `nix/modules/tls.nix` has
+the plumbing and the vhosts are in the mon01 config. The port on the proxmox
+url is not a problem — a certificate covers the name, not the port.
 
 The challenge is DNS-01, not HTTP-01, and that is the whole trick: the host
 proves it owns the name by writing a TXT record at Cloudflare, so nothing has
@@ -111,6 +113,37 @@ ssh matt@mon01 'systemctl status acme-order-renew-mon01.merionas.com.service'
 
 Issuing takes ~2 min because of the propagation wait below — the unit sits in
 `activating` the whole time, which is not a hang.
+
+### tet01
+
+tet01 is the proxmox host, not a NixOS VM, so it is not in the flake and none
+of the above applies to it. It uses proxmox's own ACME client, configured
+imperatively and living in `/etc/pve`. **This is not reproducible from this
+repo** — if tet01 is ever reinstalled, redo it:
+
+```
+# token, copied from mon01 so it is never retyped
+ssh matt@mon01 'sudo sed -n "s/^CF_DNS_API_TOKEN=//p" /var/lib/secrets/cloudflare.env' \
+  | ssh root@tet01 'umask 077; sed "s/^/CF_Token=/" > /root/.cf-data'
+
+ssh root@tet01
+  pvenode acme plugin add dns cloudflare --api cf --data /root/.cf-data
+  rm -f /root/.cf-data
+  echo y | pvenode acme account register default matthewmerioles@yahoo.com \
+    --directory https://acme-v02.api.letsencrypt.org/directory
+  pvenode config set --acme account=default \
+    --acmedomain0 tet01.merionas.com,plugin=cloudflare
+  pvenode acme cert order
+```
+
+Renews itself via `pve-daily-update.timer`.
+
+Two things worth knowing. `pvenode acme plugin list` prints the API token in
+full, in plaintext — do not paste its output anywhere. And proxmox stores that
+token unencrypted in `/etc/pve/priv/acme/plugins.cfg`, so tet01 holds a
+credential that can rewrite all of merionas.com. A second token scoped to just
+this zone, separate from mon01's, would limit the blast radius if you ever
+want to revoke one without breaking the other.
 
 ## gotchas
 
