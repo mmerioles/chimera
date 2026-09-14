@@ -22,7 +22,11 @@ locals {
 
 resource "grafana_folder" "bord" {
   title = "bord"
-  uid   = "bord"
+  # Not "bord": the dashboard has that uid, and grafana's browse page walks
+  # folders and dashboards through one uid space - a folder containing a
+  # dashboard with the same uid recurses until the tab dies
+  # ("Maximum call stack size exceeded" on /dashboards).
+  uid = "bord-folder"
 
   depends_on = [proxmox_virtual_environment_vm.doc01]
 }
