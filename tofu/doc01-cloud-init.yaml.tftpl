@@ -1,0 +1,112 @@
+#cloud-config
+# Rendered by tofu from doc01-cloud-init.yaml.tftpl - edit that, not the copy
+# on tet01. Runs once, on first boot.
+
+hostname: ${hostname}
+manage_etc_hosts: true
+timezone: America/New_York
+
+ssh_pwauth: false
+disable_root: true
+
+users:
+  - name: matt
+    shell: /bin/bash
+    groups: [sudo]
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh_authorized_keys:
+%{ for key in ssh_keys ~}
+      - ${key}
+%{ endfor ~}
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - ca-certificates
+  - curl
+  - gnupg
+
+write_files:
+  - path: /opt/grafana/docker-compose.yml
+    permissions: "0644"
+    content: |
+      name: grafana
+      services:
+        grafana:
+          image: grafana/grafana:${grafana_version}
+          container_name: grafana
+          restart: unless-stopped
+          ports:
+            - "3000:3000"
+          environment:
+            GF_SECURITY_ADMIN_USER: admin
+            GF_SECURITY_ADMIN_PASSWORD: $${GRAFANA_ADMIN_PASSWORD}
+            GF_USERS_DEFAULT_THEME: dark
+            # The address the outside world uses; grafana builds redirects
+            # and cookies from this. http://doc01:3000 keeps working.
+            GF_SERVER_ROOT_URL: ${public_url}
+          volumes:
+            - grafana_data:/var/lib/grafana
+
+        # Outbound-only connection to Cloudflare's edge. The public hostname
+        # and where it points are set on the tunnel itself (doc01-tunnel.tf),
+        # not here - this container just needs the token.
+        cloudflared:
+          image: cloudflare/cloudflared:${cloudflared_ver}
+          container_name: cloudflared
+          restart: unless-stopped
+          command: tunnel --no-autoupdate run
+          environment:
+            TUNNEL_TOKEN: $${CLOUDFLARE_TUNNEL_TOKEN}
+          depends_on:
+            - grafana
+      volumes:
+        grafana_data:
+
+  # Read by `docker compose` for the $${...} above. Root only.
+  - path: /opt/grafana/.env
+    permissions: "0600"
+    content: |
+      GRAFANA_ADMIN_PASSWORD=${grafana_password}
+      CLOUDFLARE_TUNNEL_TOKEN=${tunnel_token}
+%{ if tailscale_authkey != "" ~}
+
+  - path: /etc/tailscale/authkey
+    permissions: "0600"
+    content: |
+      ${tailscale_authkey}
+%{ endif ~}
+
+  - path: /usr/local/sbin/doc01-bootstrap.sh
+    permissions: "0755"
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+
+      systemctl enable --now qemu-guest-agent
+
+      # Docker from Docker's own repo. Debian's docker.io lags and ships no
+      # `docker compose` plugin.
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      . /etc/os-release
+      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $VERSION_CODENAME stable" \
+        > /etc/apt/sources.list.d/docker.list
+      apt-get update -q
+      apt-get install -y -q docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      systemctl enable --now docker
+      usermod -aG docker matt
+
+      docker compose -f /opt/grafana/docker-compose.yml up -d
+
+      if [ -s /etc/tailscale/authkey ]; then
+        curl -fsSL https://tailscale.com/install.sh | sh
+        tailscale up --authkey="$(cat /etc/tailscale/authkey)" --hostname=${hostname}
+        rm -f /etc/tailscale/authkey
+      fi
+
+runcmd:
+  - /usr/local/sbin/doc01-bootstrap.sh 2>&1 | tee /var/log/doc01-bootstrap.log
