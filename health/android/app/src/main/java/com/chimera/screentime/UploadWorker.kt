@@ -20,8 +20,20 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
 
     override suspend fun doWork(): Result {
         val prefs = applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val endpoint = prefs.getString(KEY_ENDPOINT, null) ?: return Result.failure()
-        val token = prefs.getString(KEY_TOKEN, null) ?: return Result.failure()
+
+        // The endpoint is a constant, not something to be typed. A stale blank
+        // value saved by an older build must not win over it.
+        val endpoint = prefs.getString(KEY_ENDPOINT, null)?.takeIf { it.isNotBlank() } ?: ENDPOINT
+
+        val token = prefs.getString(KEY_TOKEN, null)?.takeIf { it.isNotBlank() } ?: run {
+            prefs.edit()
+                .putString(KEY_SYNC_STATE, "error")
+                .putString(KEY_LAST_RESULT, "No token saved yet")
+                .apply()
+            return Result.failure()
+        }
+
+        prefs.edit().putString(KEY_SYNC_STATE, "running").apply()
 
         val now = System.currentTimeMillis()
         // UsageStatsManager keeps roughly a week of raw events; never reach
@@ -33,6 +45,12 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val data = UsageCollector(applicationContext).collect(since, now)
         val payload = buildPayload(data, since, now)
 
+        // Usage access being off is not an error the OS reports: queryEvents
+        // just returns an empty stream. Advancing the watermark on that would
+        // silently skip the window forever, so an empty read never moves it.
+        val empty = data.appSessions.isEmpty() && data.screenSessions.isEmpty() &&
+            data.unlocks.isEmpty()
+
         // Every outcome is written to KEY_LAST_RESULT and shown on the setup
         // screen. Uploads run in a background worker with no UI of their own,
         // so a swallowed exception here is indistinguishable from "nothing
@@ -40,21 +58,34 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         return try {
             val code = post(endpoint, token, payload)
             if (code in 200..299) {
-                prefs.edit()
-                    .putLong(KEY_WATERMARK, now)
-                    .putString(KEY_LAST_RESULT, "OK ($code) at " + java.util.Date())
-                    .apply()
+                val e = prefs.edit()
+                    .putString(KEY_SYNC_STATE, if (empty) "error" else "ok")
+                    .putLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+                    .putString(
+                        KEY_LAST_RESULT,
+                        if (empty) "Uploaded nothing - usage access is off"
+                        else "Sent ${data.appSessions.size} app sessions"
+                    )
+                if (!empty) e.putLong(KEY_WATERMARK, now)
+                e.apply()
                 Result.success()
             } else if (code in 500..599) {
-                prefs.edit().putString(KEY_LAST_RESULT, "server error $code, will retry").apply()
+                prefs.edit()
+                    .putString(KEY_SYNC_STATE, "error")
+                    .putString(KEY_LAST_RESULT, "Server error $code, will retry")
+                    .apply()
                 Result.retry()
             } else {
                 // 4xx is our bug, not a transient fault; retrying cannot fix it.
-                prefs.edit().putString(KEY_LAST_RESULT, "rejected: HTTP $code").apply()
+                prefs.edit()
+                    .putString(KEY_SYNC_STATE, "error")
+                    .putString(KEY_LAST_RESULT, if (code == 401) "Token rejected" else "Rejected: HTTP $code")
+                    .apply()
                 Result.failure()
             }
         } catch (t: Throwable) {
             prefs.edit()
+                .putString(KEY_SYNC_STATE, "error")
                 .putString(KEY_LAST_RESULT, t.javaClass.simpleName + ": " + (t.message ?: "no detail"))
                 .apply()
             Result.retry()
@@ -130,6 +161,11 @@ class UploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         const val KEY_TOKEN = "token"
         const val KEY_WATERMARK = "watermark"
         const val KEY_LAST_RESULT = "last_result"
+        const val KEY_SYNC_STATE = "sync_state"
+        const val KEY_LAST_SYNC_AT = "last_sync_at"
+
+        /** The one server this app talks to. */
+        const val ENDPOINT = "http://mon01:8000/v1/ingest/phone_screentime"
         const val WORK_NAME = "screentime-upload"
     }
 }

@@ -313,6 +313,14 @@ in
             editable = false;
 
             jsonData = {
+              # Grafana 11+ moved the database name into jsonData. The
+              # top-level `database` above is still read by the backend, which
+              # is why API queries succeeded while the dashboard stayed blank:
+              # the frontend plugin reads it from here, found nothing, and
+              # refused to issue any query at all - "You do not currently have
+              # a default database configured for this data source."
+              database = "health";
+
               # Loopback to a socket-local Postgres; TLS here would only
               # protect traffic that never leaves the kernel.
               sslmode = "disable";
