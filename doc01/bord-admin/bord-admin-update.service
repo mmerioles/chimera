@@ -1,0 +1,8 @@
+[Unit]
+Description=Pull and restart the bord admin panel if a new image was published
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bord-admin/update.sh

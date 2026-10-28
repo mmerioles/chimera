@@ -261,6 +261,61 @@ The `grafana` provider talks to <https://mon.bordgame.app> as admin, so
 first apply creates doc01 and pushes the dashboard in the same run; if
 grafana is not up yet when tofu gets there, just apply again.
 
+### bord admin
+
+<https://admin.bordgame.app> is the bord team's admin panel (users, shops,
+retention, logs). Source and image live in `Webtamu/bord` under
+`management/`. Only active members of the `Webtamu` GitHub org can sign in,
+and that sign-in is its only gate.
+
+```
+doc01/bord-admin/docker-compose.yml       → /opt/bord-admin/ on the box
+doc01/bord-admin/update.sh                → /opt/bord-admin/
+doc01/bord-admin/bord-admin-update.*      → /etc/systemd/system/
+tofu/doc01-tunnel.tf                      the admin.bordgame.app route + CNAME
+```
+
+How it deploys: every push to bord `main` that touches `management/` is
+tested in CI and published as `ghcr.io/webtamu/bord-management:latest`
+(private). `bord-admin-update.timer` runs `update.sh` every 5 minutes. The
+script pulls that tag and recreates the container only if the tag changed.
+Nothing reaches into doc01.
+
+It is **not** in cloud-init. Adding it there would rebuild the VM and wipe
+grafana's data, so a redeploy of doc01 loses it. Reinstall afterwards:
+
+```
+cd doc01/bord-admin
+scp docker-compose.yml update.sh matt@doc01:/tmp/ && scp bord-admin-update.* matt@doc01:/tmp/
+ssh matt@doc01 'sudo mkdir -p /opt/bord-admin && sudo mv /tmp/docker-compose.yml /tmp/update.sh /opt/bord-admin/ \
+  && sudo mv /tmp/bord-admin-update.* /etc/systemd/system/ && sudo systemctl daemon-reload'
+```
+
+then redo the secrets below and `sudo systemctl enable --now bord-admin-update.timer`.
+
+Secrets, all on the box only:
+
+- `/opt/bord-admin/.env` (root, 0600): `BASE_URL`, `SESSION_SECRET`,
+  `GITHUB_ORG`, `GITHUB_CLIENT_ID`/`SECRET` (OAuth app with callback
+  `https://admin.bordgame.app/auth/github/callback`), `SUPABASE_URL`,
+  `SUPABASE_SERVICE_KEY`. Full list: bord `management/.env.example`.
+- Root's GHCR login, so the timer can pull the private image:
+  `sudo docker login ghcr.io -u <user> --password-stdin` with a classic
+  token that has only `read:packages`.
+
+It joins grafana's compose network (`grafana_default`) so the existing
+cloudflared container reaches it as `http://bord-admin:3000`. Recreating the
+grafana stack detaches it: run `sudo systemctl start bord-admin-update` or
+`cd /opt/bord-admin && sudo docker compose up -d --force-recreate`.
+
+Check it:
+
+```
+ssh matt@doc01 'sudo docker ps --filter name=bord-admin; curl -s localhost:3100/healthz'
+ssh matt@doc01 'journalctl -u bord-admin-update -n 20'   # deploy history
+curl -sI https://admin.bordgame.app/login                # 200, server: cloudflare
+```
+
 ### upgrades
 
 - **cloudflared:** bump `cloudflared_version` in `doc01-tunnel.tf`, redeploy.

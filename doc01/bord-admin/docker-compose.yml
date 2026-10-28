@@ -1,0 +1,21 @@
+# bord admin panel on doc01 → https://admin.bordgame.app
+# Lives at /opt/bord-admin on the box. The image is built and published by
+# Webtamu/bord CI (management/); update.sh pulls it on a timer.
+name: bord-admin
+services:
+  bord-admin:
+    image: ghcr.io/webtamu/bord-management:latest
+    container_name: bord-admin
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:3100:3000"   # for checks on the box; the public way in is the tunnel
+    networks:
+      - grafana
+
+# Joins grafana's compose network so the existing cloudflared container can
+# reach it as http://bord-admin:3000 (ingress rule in tofu/doc01-tunnel.tf).
+networks:
+  grafana:
+    external: true
+    name: grafana_default

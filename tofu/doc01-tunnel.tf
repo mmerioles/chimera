@@ -14,6 +14,7 @@ locals {
   tunnel = {
     zone                = "bordgame.app"
     hostname            = "mon.bordgame.app"
+    admin_hostname      = "admin.bordgame.app"
     cloudflared_version = "2026.9.1"
   }
 }
@@ -45,6 +46,13 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "doc01" {
         service = "http://grafana:3000"
       },
       {
+        # bord admin panel (Webtamu/bord management/). Runs from
+        # /opt/bord-admin on doc01, joined to grafana's compose network so
+        # this name resolves. Its own GitHub org sign-in is the gate.
+        hostname = local.tunnel.admin_hostname
+        service  = "http://bord-admin:3000"
+      },
+      {
         # Catch-all is mandatory; anything else on this tunnel gets a 404.
         service = "http_status:404"
       },
@@ -62,9 +70,23 @@ resource "cloudflare_dns_record" "mon" {
   comment = "grafana on doc01, via tunnel. managed by tofu."
 }
 
+resource "cloudflare_dns_record" "admin" {
+  zone_id = local.cf_zone_id
+  name    = local.tunnel.admin_hostname
+  type    = "CNAME"
+  content = "${cloudflare_zero_trust_tunnel_cloudflared.doc01.id}.cfargotunnel.com"
+  proxied = true
+  ttl     = 1
+  comment = "bord admin panel on doc01, via tunnel. managed by tofu."
+}
+
 data "cloudflare_zero_trust_tunnel_cloudflared_token" "doc01" {
   account_id = local.cf_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.doc01.id
+}
+
+output "doc01_admin_url" {
+  value = "https://${local.tunnel.admin_hostname}"
 }
 
 output "doc01_public_url" {
