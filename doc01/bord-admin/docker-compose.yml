@@ -8,6 +8,8 @@ services:
     container_name: bord-admin
     restart: unless-stopped
     env_file: .env
+    environment:
+      HOST_LABEL: doc01   # shown on the panel's Status page
     ports:
       - "127.0.0.1:3100:3000"   # for checks on the box; the public way in is the tunnel
     networks:
