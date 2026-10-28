@@ -10,6 +10,9 @@ services:
     env_file: .env
     environment:
       HOST_LABEL: doc01   # shown on the panel's Status page
+      HOST_PARENT: tet01
+    volumes:
+      - /etc/os-release:/host/os-release:ro   # so Status shows the host OS, not the container's
     ports:
       - "127.0.0.1:3100:3000"   # for checks on the box; the public way in is the tunnel
     networks:
